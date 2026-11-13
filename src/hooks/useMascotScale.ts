@@ -19,12 +19,10 @@ function loadScale(): number {
       return saved;
     }
   } catch {
-    // Sem storage disponível: usa o tamanho padrão.
   }
   return 1;
 }
 
-// Tamanho do mascote: salvo no storage do WebView e aplicado na janela.
 export function useMascotScale() {
   const [scale, setScale] = useState(loadScale);
 
@@ -32,7 +30,6 @@ export function useMascotScale() {
     try {
       localStorage.setItem(STORAGE_KEY, String(scale));
     } catch {
-      // Falha ao salvar não impede o redimensionamento.
     }
 
     const size = new LogicalSize(

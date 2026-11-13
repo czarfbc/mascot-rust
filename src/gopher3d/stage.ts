@@ -17,21 +17,14 @@ import { buildGopher } from "./model";
 import { GopherMotion } from "./motion";
 import { MASCOT_SIZE } from "./size";
 
-const FPS = 30; // basta para o mascote e poupa GPU/bateria
+const FPS = 30; 
 
-// Enquadramento (unidades de mundo), igual ao sprite: o gopher ocupa ~80% da
-// altura e os pés ficam a ~89% do topo. Pés em y = 0.
 const VIEW_HEIGHT = 2.3;
 const VIEW_CENTER_Y = 0.9;
-const CAMERA_TILT = MathUtils.degToRad(8); // quase de frente, só um pouco de cima
+const CAMERA_TILT = MathUtils.degToRad(8); 
 
-// Espessura do contorno: pixels de raio por altura do mascote em escala 1,
-// então cresce junto com o mascote.
 const OUTLINE_RADIUS = 1.3;
 
-// Passe de contorno: lê a imagem de IDs e pinta de preto todo pixel cujo
-// vizinho (num anel de raio `radius`) tem outro ID. Fundo também é um "ID",
-// então a silhueta ganha contorno junto com as divisas entre peças.
 const OUTLINE_SHADER = {
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -73,7 +66,6 @@ export function createGopherStage(container: HTMLElement): GopherStage {
   renderer.domElement.style.display = "block";
   container.appendChild(renderer.domElement);
 
-  // Sem luzes: os materiais são chapados, como o sprite.
   const scene = new Scene();
 
   const camera = new OrthographicCamera();
@@ -86,7 +78,6 @@ export function createGopherStage(container: HTMLElement): GopherStage {
   scene.add(rig.root);
   const motion = new GopherMotion(rig);
 
-  // Alvo da imagem de IDs (sem filtro, para os IDs não se misturarem).
   const idTarget = new WebGLRenderTarget(1, 1, { minFilter: NearestFilter, magFilter: NearestFilter });
   const outlineMaterial = new ShaderMaterial({
     ...OUTLINE_SHADER,
@@ -127,7 +118,6 @@ export function createGopherStage(container: HTMLElement): GopherStage {
   observer.observe(container);
   resize();
 
-  // Vira os billboards (olhos) para a câmera, desfazendo a rotação dos pais.
   const parentRotation = new Quaternion();
   function faceCamera() {
     for (const item of rig.billboards) {
@@ -139,19 +129,16 @@ export function createGopherStage(container: HTMLElement): GopherStage {
   function render() {
     faceCamera();
 
-    // 1) IDs: cada peça com sua cor única, sem a sombra.
     for (const part of rig.outlined) part.mesh.material = part.idMaterial;
     rig.shadow.visible = false;
     renderer.setRenderTarget(idTarget);
     renderer.render(scene, camera);
 
-    // 2) Cor normal na tela.
     for (const part of rig.outlined) part.mesh.material = part.material;
     rig.shadow.visible = true;
     renderer.setRenderTarget(null);
     renderer.render(scene, camera);
 
-    // 3) Contorno por cima, sem limpar a tela.
     renderer.autoClear = false;
     renderer.render(outlineScene, screenCamera);
     renderer.autoClear = true;

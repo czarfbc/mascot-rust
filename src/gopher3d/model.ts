@@ -16,11 +16,6 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
-// Gopher montado só com primitivas, sem arquivo de modelo.
-// Unidades de mundo: o gopher tem ~1,8 de altura, pés em y = 0, frente para +z.
-// Medidas e cores tiradas do frame de frente do sprite sheet original (gopher_walk.png).
-
-// Tudo chapado (sem luz), como no desenho.
 const COLOR = {
   body: 0x31aac4,
   tan: 0xc2b498,
@@ -29,39 +24,26 @@ const COLOR = {
   nose: 0x3b2f2a,
 };
 
-// Corpo: uma superelipse girada em torno do eixo Y (feito vaso no torno).
 const BODY = {
   halfWidth: 0.62,
   halfHeight: 0.86,
-  roundness: 3.2, // 2 = elipse; maior = mais "retângulo arredondado"
-  taper: 0.05, // base um pouco mais larga que o topo
-  lift: 0.08, // altura da base do corpo acima do chão (os pés ficam por baixo)
+  roundness: 3.2, 
+  taper: 0.05, 
+  lift: 0.08, 
 };
 
-// Olhos são discos que sempre encaram a câmera (billboards): no sprite eles
-// aparecem como círculo em toda vista, inclusive de lado, e é isso que imita.
 const EYE = {
-  x: 0.26, // distância do centro
-  y: 0.49, // altura acima do centro do corpo
+  x: 0.26, 
+  y: 0.49, 
   radius: 0.215,
   pupil: 0.052,
-  // Ponto de apoio afundado no corpo: de lado, o olho fica dentro da cabeça
-  // (como no sprite) em vez de pendurado na borda.
   depth: 0.15,
-  // Quanto o disco sai do ponto de apoio em direção à câmera. Grande o bastante
-  // para o corpo não cortar o olho de 3/4, pequeno o bastante para o corpo
-  // ainda esconder o olho quando o gopher está de costas.
   push: 0.5,
 };
 
 export const BODY_LIFT = BODY.lift;
-// Quanto a pupila pode andar dentro do olho.
 export const PUPIL_RANGE = EYE.radius - EYE.pupil - 0.035;
 
-// Cada peça contornada guarda o material normal e um material "de ID".
-// O contorno preto é desenhado onde o ID muda de um pixel para o vizinho
-// (ver stage.ts). Peças que compartilham ID (pupila no olho, nariz no
-// focinho, pata no braço) não ganham linha entre si.
 export interface OutlinedMesh {
   mesh: Mesh;
   material: Material;
@@ -69,20 +51,19 @@ export interface OutlinedMesh {
 }
 
 export interface GopherRig {
-  root: Group; // no chão; gira (yaw) para a direção da caminhada
-  body: Group; // pivô na base do corpo: sobe/desce, inclina, respira
-  face: Group; // olhos, focinho e dentes; gira um pouco à parte (ver motion.ts)
-  feet: Group[]; // [lado -x, lado +x]
-  arms: Group[]; // pivô no ombro, [lado -x, lado +x]
-  eyes: Group[]; // billboards; escala Y = piscar
-  pupils: Group[]; // posição x/y = para onde olha
-  closedEyes: Group[]; // billboards "◡" para dormir
-  billboards: Object3D[]; // o palco vira estes para a câmera a cada frame
+  root: Group; 
+  body: Group; 
+  face: Group; 
+  feet: Group[]; 
+  arms: Group[]; 
+  eyes: Group[]; 
+  pupils: Group[]; 
+  closedEyes: Group[]; 
+  billboards: Object3D[]; 
   shadow: Mesh;
   outlined: OutlinedMesh[];
 }
 
-// Raio da seção horizontal do corpo na altura y (medida a partir do centro do corpo).
 function bodyRadius(y: number): number {
   const t = Math.min(1, Math.abs(y) / BODY.halfHeight);
   const sin = t ** (BODY.roundness / 2);
@@ -90,8 +71,6 @@ function bodyRadius(y: number): number {
   return BODY.halfWidth * cos ** (2 / BODY.roundness) * (1 - BODY.taper * Math.sign(y) * t);
 }
 
-// Ponto na frente do corpo (z > 0) na altura y (do centro) e deslocamento lateral x,
-// já em coordenadas do pivô do corpo. `push` afasta o ponto da superfície.
 function front(x: number, y: number, push = 0): [number, number, number] {
   const radius = bodyRadius(y);
   const z = Math.sqrt(Math.max(radius * radius - x * x, 0));
@@ -107,7 +86,6 @@ function bodyGeometry(): BufferGeometry {
     const y = BODY.halfHeight * Math.sign(sin) * Math.abs(sin) ** (2 / BODY.roundness);
     points.push(new Vector2(bodyRadius(y), y));
   }
-  // Começa em PI para a emenda do torno ficar nas costas.
   return new LatheGeometry(points, 48, Math.PI, Math.PI * 2);
 }
 
@@ -115,7 +93,6 @@ function ellipsoid(rx: number, ry: number, rz: number): BufferGeometry {
   return new SphereGeometry(1, 24, 16).scale(rx, ry, rz);
 }
 
-// Mancha redonda e esfumada para a sombra no chão.
 function shadowTexture(): CanvasTexture {
   const size = 64;
   const canvas = document.createElement("canvas");
@@ -140,8 +117,6 @@ export function buildGopher(): GopherRig {
 
   const outlined: OutlinedMesh[] = [];
 
-  // Cria uma peça. `sameOutlineAs` reaproveita o ID de outra peça, então
-  // não sai contorno entre as duas (só em volta do conjunto).
   function part(
     geometry: BufferGeometry,
     material: Material,
@@ -153,7 +128,6 @@ export function buildGopher(): GopherRig {
     mesh.position.set(...position);
     parent.add(mesh);
     const shared = outlined.find((item) => item.mesh === sameOutlineAs);
-    // IDs distintos no canal vermelho (passo de 4 níveis em 8 bits).
     const idMaterial =
       shared?.idMaterial ?? new MeshBasicMaterial({ color: new Color().setRGB((outlined.length + 1) / 64, 0, 0) });
     outlined.push({ mesh, material, idMaterial });
@@ -167,16 +141,13 @@ export function buildGopher(): GopherRig {
 
   const torso = part(bodyGeometry(), bodyMaterial, body, [0, BODY.halfHeight, 0]);
 
-  // Orelhas: semicírculos nos cantos de cima, metade para fora da cabeça.
   for (const side of [-1, 1]) {
     part(ellipsoid(0.135, 0.135, 0.08), bodyMaterial, body, [side * 0.49, BODY.halfHeight + 0.72, -0.02]);
   }
 
-  // Rosto num grupo próprio, girando em torno do eixo do corpo.
   const face = new Group();
   body.add(face);
 
-  // Olhos: disco branco + pupila (mesmo ID: a pupila não ganha contorno).
   const eyes: Group[] = [];
   const pupils: Group[] = [];
   for (const side of [-1, 1]) {
@@ -194,7 +165,6 @@ export function buildGopher(): GopherRig {
     pupils.push(pupil);
   }
 
-  // Olhos fechados: arcos "◡", sem contorno próprio (usam o ID do corpo).
   const closedEyes: Group[] = [];
   for (const side of [-1, 1]) {
     const closed = new Group();
@@ -206,7 +176,6 @@ export function buildGopher(): GopherRig {
     closedEyes.push(closed);
   }
 
-  // Focinho com nariz em cima e os dois dentes embaixo.
   const [muzzleX, muzzleY, muzzleZ] = front(0, 0.26, 0.04);
   const muzzle = part(ellipsoid(0.13, 0.095, 0.1), tanMaterial, face, [muzzleX, muzzleY, muzzleZ]);
   part(ellipsoid(0.058, 0.033, 0.035), noseMaterial, face, [0, muzzleY + 0.055, muzzleZ + 0.075], muzzle);
@@ -215,25 +184,21 @@ export function buildGopher(): GopherRig {
     part(tooth, whiteMaterial, face, [side * 0.034, muzzleY - 0.115, muzzleZ + 0.05]);
   }
 
-  // Braços: toco azul pendurado do lado do corpo, com a pata bege na ponta.
   const arms: Group[] = [];
   for (const side of [-1, 1]) {
     const shoulderY = -0.1;
     const arm = new Group();
     arm.position.set(side * (bodyRadius(shoulderY) - 0.04), BODY.halfHeight + shoulderY, 0);
-    arm.rotation.z = side * 0.4; // ponta aberta para fora
+    arm.rotation.z = side * 0.4; 
     body.add(arm);
     const limb = part(ellipsoid(0.075, 0.16, 0.08), bodyMaterial, arm, [0, -0.13, 0]);
     part(ellipsoid(0.06, 0.05, 0.065), tanMaterial, arm, [0, -0.26, 0], limb);
     arms.push(arm);
   }
 
-  // Rabinho nas costas, perto da base. Mesmo ID do corpo: sem contorno próprio,
-  // só aparece como calombo na silhueta de lado (de costas o sprite não mostra).
   const [, tailY, tailZ] = front(0, -0.6);
   part(ellipsoid(0.075, 0.075, 0.075), bodyMaterial, body, [0, tailY, -tailZ + 0.02], torso);
 
-  // Pés: presos ao root (não ao corpo), para ficarem no chão quando o corpo balança.
   const feet: Group[] = [];
   for (const side of [-1, 1]) {
     const foot = new Group();

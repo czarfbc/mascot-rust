@@ -1,15 +1,9 @@
 import { MathUtils, Vector2 } from "three";
 import { BODY_LIFT, PUPIL_RANGE, type GopherRig } from "./model";
 
-// Animação procedural: nada de keyframes, tudo sai de senos e de tempo.
-// Cada pose tem um "peso" (0..1) que desliza até o alvo, então trocar de
-// pose (andar -> parar -> sentar) sempre faz transição suave.
 
 type Pose = "walk" | "idle" | "sit" | "sleep";
 
-// Nome do evento "animation" do Rust -> yaw. 0 = de frente para a tela,
-// positivo = vira para a direita da tela. Só é usado quando o Rust não
-// mandou o ângulo exato pelo evento "direction" (ver setDirection).
 const WALK_YAW: Record<string, number> = {
   walk_down: 0,
   walk_down_right: Math.PI / 4,
@@ -21,10 +15,10 @@ const WALK_YAW: Record<string, number> = {
   walk_down_left: -Math.PI / 4,
 };
 
-const STEP_HZ = 1.8; // ciclos de passada (esquerdo + direito) por segundo
-const STRIDE = 0.13; // quanto cada pé vai para frente/trás
+const STEP_HZ = 1.8;
+const STRIDE = 0.13;
 const FOOT_LIFT = 0.07;
-const BLEND_RATE = 7; // quão rápido as poses se misturam
+const BLEND_RATE = 7; 
 
 function wrapAngle(angle: number): number {
   return MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
@@ -33,18 +27,16 @@ function wrapAngle(angle: number): number {
 export class GopherMotion {
   private rig: GopherRig;
   private pose: Pose = "idle";
-  private heading: number | null = null; // yaw exato da caminhada atual
+  private heading: number | null = null; 
   private targetYaw = 0;
   private yaw = 0;
   private time = 0;
   private phase = 0;
 
-  // pesos das poses
   private walk = 0;
   private sit = 0;
   private sleep = 0;
 
-  // piscar e olhar em volta
   private nextBlink = 2;
   private blinkUntil = 0;
   private nextLook = 1;
@@ -63,13 +55,10 @@ export class GopherMotion {
       return;
     }
     this.pose = name === "sit" || name === "sleep" ? name : "idle";
-    this.targetYaw = 0; // parado: vira de frente para a tela
-    this.heading = null; // a próxima caminhada traz o próprio ângulo
+    this.targetYaw = 0;
+    this.heading = null; 
   }
 
-  // Ângulo exato da caminhada, em graus na tela, igual ao `dy.atan2(dx)` do
-  // Rust: 0 = direita, 90 = baixo (o y da tela cresce para baixo), 180 = esquerda.
-  // Convertido para yaw: 0 = de frente para a tela, 90° = virado para a direita.
   setDirection(screenDegrees: number) {
     this.heading = Math.PI / 2 - MathUtils.degToRad(screenDegrees);
     if (this.pose === "walk") {
@@ -88,15 +77,11 @@ export class GopherMotion {
     this.sleep = MathUtils.damp(this.sleep, this.pose === "sleep" ? 1 : 0, BLEND_RATE * 0.4, dt);
     const { walk, sit, sleep } = this;
 
-    // Vira pelo caminho mais curto.
     this.yaw += wrapAngle(this.targetYaw - this.yaw) * (1 - Math.exp(-10 * dt));
     rig.root.rotation.y = this.yaw;
-    // Truque do sprite: de 3/4 o rosto gira menos que o corpo (fica ~30° em
-    // vez de 45°), mas de frente, de lado e de costas acompanha o corpo.
     const faceYaw = -0.26 * Math.sin(2 * this.yaw);
     rig.face.rotation.y = faceYaw;
 
-    // Ciclo de passada: o pé avança quando cos(fase) > 0, e só aí sai do chão.
     this.phase += dt * Math.PI * 2 * STEP_HZ;
     const swing = Math.sin(this.phase);
 
@@ -105,17 +90,13 @@ export class GopherMotion {
       const lift = Math.max(0, Math.cos(phase));
       foot.position.z = 0.06 + Math.sin(phase) * STRIDE * walk + 0.2 * sit;
       foot.position.y = lift * FOOT_LIFT * walk + 0.03 * sit;
-      // sentado: sola dos pés virada para a tela
       foot.rotation.x = -lift * 0.3 * walk - 0.9 * sit;
     });
 
-    // Braço balança ao contrário do pé do mesmo lado; sentado, descansa na barriga.
     rig.arms.forEach((arm, side) => {
       arm.rotation.x = Math.sin(this.phase + side * Math.PI) * 0.5 * walk - 0.35 * sit;
     });
 
-    // Corpo: sobe a cada passo, rebola de lado, inclina para frente ao andar,
-    // para trás ao sentar e cai para frente ao dormir.
     const breathHz = MathUtils.lerp(0.5, 0.22, sleep);
     const breathSize = MathUtils.lerp(0.012, 0.03, sleep);
     const breath = Math.sin(t * Math.PI * 2 * breathHz) * breathSize;
@@ -124,7 +105,6 @@ export class GopherMotion {
     rig.body.rotation.x = 0.04 * walk - 0.08 * sit + 0.2 * sleep;
     rig.body.scale.set(1 - breath * 0.5, 1 + breath, 1 - breath * 0.5);
 
-    // Piscar de vez em quando (dormindo, os olhos ficam fechados).
     if (t >= this.nextBlink) {
       this.blinkUntil = t + 0.12;
       this.nextBlink = t + MathUtils.randFloat(2.5, 6);
@@ -132,7 +112,6 @@ export class GopherMotion {
     const asleep = sleep > 0.5;
     const blinking = t < this.blinkUntil;
     rig.eyes.forEach((eye) => {
-      // Olho virado para longe da câmera some (de lado, o sprite mostra um olho só).
       const facing = Math.cos(this.yaw + faceYaw + Math.atan2(eye.position.x, eye.position.z));
       eye.visible = !asleep && facing > -0.3;
       eye.scale.y = blinking ? 0.1 : 1;
@@ -141,9 +120,7 @@ export class GopherMotion {
       closed.visible = asleep;
     });
 
-    // Os olhos são discos virados para a câmera, então a pupila anda em 2D:
-    // vai para o lado em que o gopher está virado (como no sprite) e,
-    // parado, ainda olha em volta de vez em quando. Valores em -1..1.
+
     if (this.pose === "walk") {
       this.lookTarget.set(0, 0);
     } else if (t >= this.nextLook) {

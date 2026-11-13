@@ -9,15 +9,11 @@ function App() {
   const [direction, setDirection] = useState<Direction | null>(null);
   const { grow } = useMascotScale();
 
-  // O Rust escolhe a animação emitindo o evento "animation" com o nome dela.
-  // O gopher 3D entende walk_*, "sit" e "sleep"; qualquer outro nome vira "idle".
-  // Ao começar a andar, o Rust também emite "direction" com o ângulo exato.
   useEffect(() => {
     const unlistenAnimation = listen<string>("animation", (event) => {
       setAnimation(event.payload);
     });
     const unlistenDirection = listen<number>("direction", (event) => {
-      // Objeto novo a cada evento: repete o efeito mesmo com o mesmo ângulo.
       setDirection({ degrees: event.payload });
     });
     return () => {
@@ -26,7 +22,6 @@ function App() {
     };
   }, []);
 
-  // Roda do mouse em cima do mascote: para cima aumenta, para baixo diminui.
   function handleWheel(event: WheelEvent) {
     grow(event.deltaY < 0 ? 1 : -1);
   }
