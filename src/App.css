@@ -1,0 +1,26 @@
+/* A janela é transparente; o HTML também precisa ser. */
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+.stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  user-select: none;
+  cursor: default;
+}
+
+/* O canvas do Three.js ocupa a janela inteira; a sombra no chão é desenhada no 3D. */
+.gopher-3d {
+  width: 100%;
+  height: 100%;
+}
